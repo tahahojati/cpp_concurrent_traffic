@@ -21,6 +21,7 @@ class MessageQueue
 public:
   void send(T&&);
   T&& receive();
+  MessageQueue() = default;
   MessageQueue(const MessageQueue&) = delete; 
   MessageQueue& operator=(const MessageQueue&) = delete; 
 
@@ -42,14 +43,14 @@ public:
     enum class TrafficLightPhase {
         red,
         green,
-    }
+    };
     // constructor / desctructor
-	TrafficLight();
+	  TrafficLight();
     TrafficLight(const TrafficLight&) = delete; 
     TrafficLight(TrafficLight&&);
     TrafficLight& operator=(const TrafficLight&) = delete;
     TrafficLight& operator=(TrafficLight&&);
-    ~TrafficLight();
+    ~TrafficLight() = default;
     // typical behaviour methods
     void waitForGreen();
     void simulate();
@@ -57,7 +58,7 @@ public:
 
 private:
     // typical behaviour methods
-    MessageQueue<TrafficLightPhase> _q{};
+    MessageQueue<TrafficLightPhase> _q;
     TrafficLightPhase _currentPhase;
     void cycleThroughPhases();
 

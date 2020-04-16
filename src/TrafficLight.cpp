@@ -11,11 +11,11 @@
 template <typename T>
 T&& MessageQueue<T>::receive()
 {
-  std::unique_lock lck(_mutex, std::try_to_lock);
-  auto chk = [&_deque]() -> bool{return !_deque.empty();};
+  std::unique_lock<std::mutex> lck(_mtx, std::try_to_lock);
+  auto chk = [this]() -> bool{return !_queue.empty();};
   _cond.wait(lck, chk);
-  T &&ret = std::move(_deque.front()); 
-  _deque.popFront(); 
+  T &&ret = std::move(_queue.front()); 
+  _queue.pop_front(); 
   return std::move(ret);
     // FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
     // to wait for and receive new messages and pull them from the queue using move semantics. 
@@ -25,7 +25,7 @@ T&& MessageQueue<T>::receive()
 template <typename T>
 void MessageQueue<T>::send(T &&msg)
 {
-  std::lock_guard grd(_mtx);
+  std::lock_guard<std::mutex> grd(_mtx);
   _queue.push_back(std::move(msg));
   _cond.notify_one();
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
@@ -47,7 +47,7 @@ void TrafficLight::waitForGreen()
   while(_q.receive() != TrafficLightPhase::green);
 }
 
-TrafficLightPhase TrafficLight::getCurrentPhase()
+TrafficLight::TrafficLightPhase TrafficLight::getCurrentPhase()
 {
     return _currentPhase;
 }
@@ -62,14 +62,15 @@ void TrafficLight::simulate()
 void TrafficLight::cycleThroughPhases()
 {
   using namespace std::chrono;
-  std::uniform_int_distribution dist{4000, 6000};
-  time_point last_run = steady_clock::now() - milliseconds(6000);
-  auto seed = static_cast<default_random_engine::result_type>(last_run.time_since_epoch().count()); //seed randome generator with current time in millis. 
-  std::default_random_engine generator{seed); 
+  typedef std::default_random_engine::result_type rand_type; 
+  std::uniform_int_distribution<rand_type> dist{4000, 6000};
+  steady_clock::time_point last_run = steady_clock::now() - milliseconds(6000);
+  auto seed = static_cast<rand_type>(last_run.time_since_epoch().count()); //seed randome generator with current time in millis. 
+  std::default_random_engine generator{seed}; 
   auto next_duration = milliseconds(dist(generator)); 
   while(true){
-    time_point t = steady_clock::now();
-    seconds secs = t - last_run;
+    steady_clock::time_point t = steady_clock::now();
+    seconds secs = duration_cast<seconds>(t - last_run);
     if(secs > next_duration) {
       last_run = t; 
       next_duration = milliseconds(dist(generator));
@@ -81,7 +82,7 @@ void TrafficLight::cycleThroughPhases()
           _currentPhase = TrafficLightPhase::red;
           break;
       }
-      _q.sendMessage(_currentPhase); 
+      _q.send(TrafficLightPhase(_currentPhase)); 
     }
     std::this_thread::sleep_for(milliseconds(1)); 
   }
